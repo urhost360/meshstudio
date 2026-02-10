@@ -17,6 +17,7 @@ This repository had no implementation artifacts, so all required security contro
 11. Missing `org_id` column on `core.project_permissions` despite the system rule requiring org scope on every table.
 12. Missing explicit DB-level append-only enforcement for `audit.audit_logs`.
 13. Missing DB-level uniqueness guarantee to block token hash reuse across shares/projects.
+14. Missing explicit guard to catch unresolved merge markers in security-critical baseline files.
 
 ## Fixes implemented
 
@@ -34,6 +35,10 @@ This repository had no implementation artifacts, so all required security contro
     - add `org_id` to `core.project_permissions`, backfill it, and enforce strict org consistency with project/user,
     - enforce unique non-null `token_hash` across shares,
     - enforce append-only audit logs by blocking update/delete and revoking mutation privileges.
+12. Updated `scripts/check_security_baseline.sh` to:
+    - verify required baseline files exist,
+    - fail if unresolved merge markers appear in baseline docs/scripts,
+    - continue enforcing required SQL and API contract patterns.
 
 ## Notes
 

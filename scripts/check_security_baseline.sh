@@ -8,6 +8,25 @@ sql4="db/migrations/0004_state_machine_guards.sql"
 sql5="db/migrations/0005_hardening_fixes.sql"
 api="openapi/urmeshstudio360.openapi.yaml"
 order_doc="docs/implementation-order.md"
+security_doc="docs/security-gap-fixes.md"
+
+required_files=(
+  "$sql1" "$sql2" "$sql3" "$sql4" "$sql5"
+  "$api" "$order_doc" "$security_doc"
+)
+
+for file in "${required_files[@]}"; do
+  if [[ ! -f "$file" ]]; then
+    echo "Missing required file: $file" >&2
+    exit 1
+  fi
+done
+
+# Fail fast on unresolved merge conflicts (important for PR conflict resolution).
+if rg -n "^(<<<<<<<|=======|>>>>>>>)" "$security_doc" "$0" >/dev/null; then
+  echo "Unresolved merge conflict markers detected in baseline files." >&2
+  exit 1
+fi
 
 required_patterns=(
   "CREATE SCHEMA IF NOT EXISTS core;"
