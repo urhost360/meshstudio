@@ -1,0 +1,226 @@
+openapi: 3.1.0
+info:
+  title: UrMeshStudio360 API
+  version: 0.1.0
+  description: Security-first internal 3D platform API contracts.
+servers:
+  - url: https://api.urmeshstudio360.internal
+paths:
+  /auth/login:
+    post:
+      summary: Redirect user to configured OIDC provider login.
+      operationId: authLogin
+      tags: [Auth]
+      responses:
+        '302':
+          description: Redirect to OIDC provider.
+        '400':
+          description: Invalid auth request.
+  /auth/session:
+    get:
+      summary: Read authenticated session context.
+      operationId: getAuthSession
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active session details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '401':
+          description: Not authenticated.
+  /projects:
+    post:
+      summary: Create a project (private + draft by default).
+      operationId: createProject
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created.
+        '401':
+          description: Not authenticated.
+        '403':
+          description: Forbidden (requires owner/admin).
+  /projects/{id}:
+    get:
+      summary: Read project by explicit permission or validated share.
+      operationId: getProjectById
+      tags: [Projects]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project returned.
+        '401':
+          description: Not authenticated (for auth-required flows).
+        '403':
+          description: Forbidden.
+        '404':
+          description: Not found (or hidden by policy).
+  /projects/{id}/shares:
+    post:
+      summary: Create share link for project.
+      operationId: createShare
+      tags: [Shares]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShareRequest'
+      responses:
+        '201':
+          description: Share created.
+        '401':
+          description: Not authenticated.
+        '403':
+          description: Forbidden (owner only).
+  /shares/{id}/validate:
+    get:
+      summary: Validate share and return short-lived viewer session.
+      operationId: validateShare
+      tags: [Shares]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: token
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Share valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewerSessionResponse'
+        '403':
+          description: Share revoked/expired/invalid.
+  /assets:
+    post:
+      summary: Upload new asset (editor/owner only).
+      operationId: uploadAsset
+      tags: [Assets]
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Asset accepted for ingest.
+        '401':
+          description: Not authenticated.
+        '403':
+          description: Forbidden.
+  /assets/{id}:
+    get:
+      summary: Request short-lived signed URL for asset.
+      operationId: getAssetSignedUrl
+      tags: [Assets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Signed URL returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetSignedUrlResponse'
+        '403':
+          description: Session invalid/denied/out of scope.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AuthSessionResponse:
+      type: object
+      required: [user_id, org_id, role, expires_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, admin, editor, viewer]
+        expires_at:
+          type: string
+          format: date-time
+    CreateShareRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [internal, token, public]
+        expires_at:
+          type: string
+          format: date-time
+          description: Required when type=token.
+    ViewerSessionResponse:
+      type: object
+      required: [project_id, mode, permissions, asset_scope, expires_at]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [internal, token, public]
+        permissions:
+          type: array
+          items:
+            type: string
+          example: [viewer]
+        asset_scope:
+          type: object
+          additionalProperties: true
+        expires_at:
+          type: string
+          format: date-time
+    AssetSignedUrlResponse:
+      type: object
+      required: [url, expires_at]
+      properties:
+        url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
